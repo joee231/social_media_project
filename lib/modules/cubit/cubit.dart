@@ -1004,6 +1004,7 @@ class SocialCubit extends Cubit<SocialStates> {
       receiverId: receiverId,
       dateTime: dateTime,
       text: messageController.text.trim(),
+      messageId: '', // Firestore will auto-generate ID
     );
 
     if (selectedMessageImage != null) {
@@ -1440,4 +1441,117 @@ class SocialCubit extends Cubit<SocialStates> {
     photoUrls.remove(url);
     emit(SocialPhotosUpdatedState());
   }
+  void clearMessagesStream() {
+    messagesStream?.cancel();
+    messagesStream = null;
+  }
+
+  void deleteChat(String receiverId) async {
+    if (userModel == null) {
+      emit(SocialDeleteChatErrorState('User not loaded'));
+      return;
+    }
+    // Delete all messages for sender
+    var senderMessages = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userModel!.uId)
+        .collection('chats')
+        .doc(receiverId)
+        .collection('messages')
+        .get();
+    for (var doc in senderMessages.docs) {
+      await doc.reference.delete();
+    }
+    // Delete chat for sender
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userModel!.uId)
+        .collection('chats')
+        .doc(receiverId)
+        .delete()
+        .then((_) {
+      emit(SocialDeleteChatSuccessState());
+    }).catchError((error) {
+      emit(SocialDeleteChatErrorState(error.toString()));
+    });
+
+    // Delete all messages for receiver
+    var receiverMessages = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(receiverId)
+        .collection('chats')
+        .doc(userModel!.uId)
+        .collection('messages')
+        .get();
+    for (var doc in receiverMessages.docs) {
+      await doc.reference.delete();
+    }
+    // Delete chat for receiver
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(receiverId)
+        .collection('chats')
+        .doc(userModel!.uId)
+        .delete()
+        .catchError((error) {
+      emit(SocialDeleteChatErrorState(error.toString()));
+    });
+  }
+
+
+  void deleteMessage(String messageId, String receiverId) {
+    if (userModel == null) {
+      emit(SocialDeleteMessageErrorState('User not loaded'));
+      return;
+    }
+    // Delete from sender's collection
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(userModel!.uId)
+        .collection('chats')
+        .doc(receiverId)
+        .collection('messages')
+        .doc(messageId)
+        .delete()
+        .then((_) {
+      emit(SocialDeleteMessageSuccessState());
+    }).catchError((error) {
+      emit(SocialDeleteMessageErrorState(error.toString()));
+    });
+
+    // Delete from receiver's collection
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(receiverId)
+        .collection('chats')
+        .doc(userModel!.uId)
+        .collection('messages')
+        .doc(messageId)
+        .delete()
+        // No need to emit success again
+        .catchError((error) {
+      emit(SocialDeleteMessageErrorState(error.toString()));
+    });
+  }
+  String formatDate(String? dateTime) {
+    if (dateTime == null || dateTime.isEmpty) return 'Unknown';
+    try {
+      final date = DateTime.parse(dateTime);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays > 0) {
+        return '${difference.inDays}d ago';
+      } else if (difference.inHours > 0) {
+        return '${difference.inHours}h ago';
+      } else if (difference.inMinutes > 0) {
+        return '${difference.inMinutes}m ago';
+      } else {
+        return 'Just now';
+      }
+    } catch (e) {
+      return 'Unknown';
+    }
+  }
+
 }

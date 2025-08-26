@@ -261,3 +261,18 @@ class SocialNavigationRequiredState extends SocialStates {
   SocialNavigationRequiredState(this.userId);
 }
 class SocialPhotosUpdatedState extends SocialStates {}
+
+
+
+class SocialDeleteMessageSuccessState extends SocialStates {}
+class SocialDeleteMessageErrorState extends SocialStates {
+
+  final String error;
+  SocialDeleteMessageErrorState(this.error);
+}
+class SocialDeleteChatSuccessState extends SocialStates {}
+class SocialDeleteChatErrorState extends SocialStates {
+
+  final String error;
+  SocialDeleteChatErrorState(this.error);
+}

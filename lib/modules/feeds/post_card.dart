@@ -127,7 +127,8 @@ class _PostCardState extends State<PostCard> {
                             ],
                           ),
                           Text(
-                            widget.model.dateTime,
+                              SocialCubit.get(context).formatDate(widget.model.dateTime ?? ''),
+
                             style: Theme.of(context).textTheme.bodySmall!
                                 .copyWith(height: 1.4, color: Colors.grey),
                           ),
@@ -503,7 +504,7 @@ class _PostCardState extends State<PostCard> {
                                 ),
                                 subtitle: Text(comment.comment),
                                 trailing: Text(
-                                  comment.dateTime ?? '',
+                                  SocialCubit.get(context).formatDate(comment.dateTime ?? ''),
                                   style: const TextStyle(fontSize: 10, color: Colors.grey),
                                 ),
                               );

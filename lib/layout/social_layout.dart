@@ -169,10 +169,7 @@ class _SocialLayoutState extends State<SocialLayout> {
         {
           navigateTo(context, NewPostScreen(),);
         }
-        // Remove redundant user data loading on login success
-        // if (state is SocialLoginSuccessState) {
-        //   SocialCubit.get(context).getUserData();
-        // }
+
         if (state is SocialSendEmailVerificationSuccessState) {
           // Toast already shown in cubit method
           showToast(
@@ -274,7 +271,7 @@ class _SocialLayoutState extends State<SocialLayout> {
                       ),
                       _AnimatedMenuItem(
                         icon: IconButtonIcons.brightness_4,
-                        label: 'Theme',
+                        label: SocialCubit.get(context).isDark ? 'Light Mode' : 'Dark Mode',
                         color: SocialCubit.get(context).isDark ? Colors.grey : Colors.black,
                         onTap: () {
                           SocialCubit.get(context).changeAppMode();

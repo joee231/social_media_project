@@ -69,7 +69,7 @@ class PostDetailsScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 2.0),
                             Text(
-                              _formatDate(post.dateTime),
+                              SocialCubit.get(context).formatDate(post.dateTime ?? ''),
                               style: TextStyle(
                                 fontSize: 13.0,
                                 color: Theme.of(context).textTheme.bodySmall?.color,
@@ -281,23 +281,4 @@ class PostDetailsScreen extends StatelessWidget {
     );
   }
 
-  String _formatDate(String dateTime) {
-    try {
-      final date = DateTime.parse(dateTime);
-      final now = DateTime.now();
-      final difference = now.difference(date);
-
-      if (difference.inDays > 0) {
-        return '${difference.inDays}d ago';
-      } else if (difference.inHours > 0) {
-        return '${difference.inHours}h ago';
-      } else if (difference.inMinutes > 0) {
-        return '${difference.inMinutes}m ago';
-      } else {
-        return 'Just now';
-      }
-    } catch (e) {
-      return dateTime;
-    }
-  }
 }

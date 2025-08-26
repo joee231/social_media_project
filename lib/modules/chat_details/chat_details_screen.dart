@@ -1,8 +1,6 @@
-import 'package:animated_conditional_builder/animated_conditional_builder.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../../models/messege_model.dart';
 import '../../models/user_model.dart';
@@ -97,27 +95,35 @@ class _ChatDetailsScreenState extends State<ChatDetailsScreen> {
               children: [
                 CircleAvatar(
                   radius: 20.0,
-                  backgroundImage: (widget.userModel.image != null &&
-                      widget.userModel.image!.isNotEmpty &&
-                      Uri.tryParse(widget.userModel.image!) != null &&
-                      Uri.parse(widget.userModel.image!).hasScheme)
-                      ? NetworkImage(widget.userModel.image!)
+                  backgroundImage: (widget.userModel.image.isNotEmpty &&
+                      Uri.tryParse(widget.userModel.image) != null &&
+                      Uri.parse(widget.userModel.image).hasScheme)
+                      ? NetworkImage(widget.userModel.image)
                       : null,
                   backgroundColor: Colors.grey[300],
-                  child: (widget.userModel.image == null ||
-                      widget.userModel.image!.isEmpty ||
-                      Uri.tryParse(widget.userModel.image!) == null ||
-                      !Uri.parse(widget.userModel.image!).hasScheme)
+                  child: (widget.userModel.image.isEmpty ||
+                      Uri.tryParse(widget.userModel.image) == null ||
+                      !Uri.parse(widget.userModel.image).hasScheme)
                       ? Icon(Icons.person, color: Colors.grey[600])
                       : null,
                 ),
                 SizedBox(width: 15.0),
                 Text(
-                  widget.userModel.name ?? 'Unknown User',
+                  widget.userModel.name,
                   style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
+            actions: [
+              IconButton(
+                  onPressed: ()
+                  {
+                    SocialCubit.get(context).deleteChat(widget.userModel.uId);
+                    Navigator.pop(context);
+                  },
+                  icon: Icon(Icons.delete_outline),
+              ),
+            ],
           ),
           body: Padding(
             padding: const EdgeInsets.all(20.0),
@@ -155,23 +161,28 @@ class _ChatDetailsScreenState extends State<ChatDetailsScreen> {
                         );
                       }
 
-                      List<MessegeModel> messages = snapshot.data!.docs
-                          .map((doc) => MessegeModel.fromJson(doc.data() as Map<String, dynamic>))
+                      // Map docs to pairs of MessegeModel and docId
+                      final messagePairs = snapshot.data!.docs
+                          .map((doc) => {
+                            'model': MessegeModel.fromJson(doc.data() as Map<String, dynamic>),
+                            'id': doc.id,
+                          })
                           .toList();
 
                       return ListView.separated(
                         physics: BouncingScrollPhysics(),
                         reverse: false,
                         itemBuilder: (context, index) {
-                          var message = messages[index];
+                          var message = messagePairs[index]['model'] as MessegeModel;
+                          var messageId = messagePairs[index]['id'] as String;
                           if (message.senderId == cubit.userModel!.uId) {
-                            return buildMyMessage(message, context);
+                            return buildMyMessage(message, context, messageId);
                           } else {
-                            return buildMessage(message, context);
+                            return buildMessage(message, context, messageId);
                           }
                         },
                         separatorBuilder: (context, index) => SizedBox(height: 10.0),
-                        itemCount: messages.length,
+                        itemCount: messagePairs.length,
                       );
                     },
                   ),
@@ -256,7 +267,7 @@ class _ChatDetailsScreenState extends State<ChatDetailsScreen> {
                           minWidth: 1.0,
                           onPressed: () {
                             cubit.sendMessageWithImage(
-                              receiverId: widget.userModel.uId!,
+                              receiverId: widget.userModel.uId,
                               dateTime: DateTime.now().toString(),
                             );
                           },
@@ -278,7 +289,8 @@ class _ChatDetailsScreenState extends State<ChatDetailsScreen> {
     );
   }
 
-  Widget buildMessage(MessegeModel message, context) => Align(
+  // Update buildMessage and buildMyMessage to accept messageId
+  Widget buildMessage(MessegeModel message, context, String messageId) => Align(
     alignment: AlignmentDirectional.centerStart,
     child: Container(
       decoration: BoxDecoration(
@@ -352,76 +364,105 @@ class _ChatDetailsScreenState extends State<ChatDetailsScreen> {
     ),
   );
 
-  Widget buildMyMessage(MessegeModel message, context) => Align(
+  Widget buildMyMessage(MessegeModel message, context, String messageId) => Align(
     alignment: AlignmentDirectional.centerEnd,
-    child: Container(
-      decoration: BoxDecoration(
-        color:SocialCubit.get(context).isDark? Colors.blueGrey :Colors.lightBlue[100],
-        borderRadius: BorderRadiusDirectional.only(
-          bottomStart: Radius.circular(10),
-          topEnd: Radius.circular(10),
-          topStart: Radius.circular(10),
+    child: InkWell(
+      onLongPress: () {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Delete Message'),
+            content: Text('Are you sure you want to delete this message?'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop(); // Close the dialog
+                },
+                child: Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  SocialCubit.get(context).deleteMessage(
+                      messageId,
+                      widget.userModel.uId
+                  );
+                  Navigator.of(context).pop(); // Close the dialog
+                },
+                child: Text('Delete', style: TextStyle(color: Colors.red)),
+              ),
+            ],
+          ),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color:SocialCubit.get(context).isDark? Colors.blueGrey :Colors.lightBlue[100],
+          borderRadius: BorderRadiusDirectional.only(
+            bottomStart: Radius.circular(10),
+            topEnd: Radius.circular(10),
+            topStart: Radius.circular(10),
+          ),
         ),
-      ),
-      padding: EdgeInsets.symmetric(
-        horizontal: 10.0,
-        vertical: 5.0,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (message.messageImage != null && message.messageImage!.isNotEmpty)
-            InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ImageViewerScreen(
-                      imageUrl: message.messageImage!,
-                      heroTag: 'my_message_image_${message.dateTime}',
+        padding: EdgeInsets.symmetric(
+          horizontal: 10.0,
+          vertical: 5.0,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (message.messageImage != null && message.messageImage!.isNotEmpty)
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ImageViewerScreen(
+                        imageUrl: message.messageImage!,
+                        heroTag: 'my_message_image_${message.dateTime}',
+                      ),
                     ),
-                  ),
-                );
-              },
-              child: Hero(
-                tag: 'my_message_image_${message.dateTime}',
-                child: Container(
-                  margin: EdgeInsets.only(bottom: message.text.isNotEmpty ? 8.0 : 0),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8.0),
-                    child: Image.network(
-                      message.messageImage!,
-                      width: 200,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          width: 200,
-                          height: 100,
-                          color: Colors.grey[300],
-                          child: Icon(Icons.broken_image, color: Colors.grey[600]),
-                        );
-                      },
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          width: 200,
-                          height: 100,
-                          child: Center(child: CircularProgressIndicator()),
-                        );
-                      },
+                  );
+                },
+                child: Hero(
+                  tag: 'my_message_image_${message.dateTime}',
+                  child: Container(
+                    margin: EdgeInsets.only(bottom: message.text.isNotEmpty ? 8.0 : 0),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8.0),
+                      child: Image.network(
+                        message.messageImage!,
+                        width: 200,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: 200,
+                            height: 100,
+                            color: Colors.grey[300],
+                            child: Icon(Icons.broken_image, color: Colors.grey[600]),
+                          );
+                        },
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            width: 200,
+                            height: 100,
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          if (message.text.isNotEmpty)
-            Text(
-              message.text ,
-              style: TextStyle(
-                color:Theme.of(context).textTheme.bodySmall!.color,
+            if (message.text.isNotEmpty)
+              Text(
+                message.text ,
+                style: TextStyle(
+                  color:Theme.of(context).textTheme.bodySmall!.color,
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     ),
   );

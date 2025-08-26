@@ -101,7 +101,7 @@ class CommentDetailsScreen extends StatelessWidget {
                         ),
                         subtitle: Text(comment.comment ?? ''),
                         trailing: Text(
-                          comment.dateTime ?? '',
+                          SocialCubit.get(context).formatDate(comment.dateTime ?? ''),
                           style: const TextStyle(fontSize: 10, color: Colors.grey),
                         ),
                       ),
